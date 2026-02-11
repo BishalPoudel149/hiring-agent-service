@@ -18,8 +18,12 @@ import { ApplicationEvaluation } from './entities/application-evaluation.entity'
       useFactory: () => {
         const url = process.env.DATABASE_URL;
         const isLocalhost = (process.env.DB_HOST || 'localhost') === 'localhost';
-        
+
         if (url) {
+          console.log('--------------------------------------------------');
+          console.log('Using DATABASE_URL from environment.');
+          console.log(`URL: ${url}`);
+          console.log('--------------------------------------------------');
           return {
             type: 'postgres',
             url,
@@ -29,8 +33,8 @@ import { ApplicationEvaluation } from './entities/application-evaluation.entity'
           };
         }
 
-        return {
-          type: 'postgres',
+        const config = {
+          type: 'postgres' as const,
           host: process.env.DB_HOST || 'localhost',
           port: parseInt(process.env.DB_PORT || '5432', 10),
           username: process.env.DB_USER || 'bishal',
@@ -40,6 +44,14 @@ import { ApplicationEvaluation } from './entities/application-evaluation.entity'
           synchronize: true,
           ssl: isLocalhost ? false : { rejectUnauthorized: false }
         };
+        console.log('--------------------------------------------------');
+        console.log('Connecting to Database:');
+        console.log(`Host: ${config.host}`);
+        console.log(`User: ${config.username}`);
+        console.log(`DB Name: ${config.database}`);
+        console.log(`SSL: ${JSON.stringify(config.ssl)}`);
+        console.log('--------------------------------------------------');
+        return config;
       }
     }),
     ApplicationModule,
@@ -48,5 +60,5 @@ import { ApplicationEvaluation } from './entities/application-evaluation.entity'
     McpModule
   ]
 })
-export class AppModule {}
+export class AppModule { }
 
