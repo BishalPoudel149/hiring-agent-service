@@ -3,9 +3,23 @@ import axios from 'axios';
 
 @Injectable()
 export class LinkedinParserService {
-  private readonly webhookUrl =
-    process.env.RELEVANCE_WEBHOOK_URL ||
-    'https://api-f1db6c.stack.tryrelevance.com/latest/studios/c166d939-2f2e-4f02-b9b7-399b5a5eace8/trigger_webhook?project=d02a83cbf665-406d-9b2e-a5915efddda2';
+  private readonly webhookUrl = this.getWebhookUrl();
+
+  private getWebhookUrl(): string {
+    const envUrl = process.env.RELEVANCE_WEBHOOK_URL;
+    const defaultUrl = 'https://api-f1db6c.stack.tryrelevance.com/latest/studios/c166d939-2f2e-4f02-b9b7-399b5a5eace8/trigger_webhook?project=d02a83cbf665-406d-9b2e-a5915efddda2';
+
+    if (!envUrl || envUrl === 'your-relevance-webhook-url') {
+      return defaultUrl;
+    }
+
+    try {
+      new URL(envUrl);
+      return envUrl;
+    } catch {
+      return defaultUrl;
+    }
+  }
 
   /**
    * Get user profile data from LinkedIn via the existing Relevance AI webhook.
