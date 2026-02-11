@@ -10,20 +10,16 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApplicationService } from './application.service';
+import { StorageService } from '../storage/storage.service';
 import { JobApplication } from '../entities/job-application.entity';
 import { JobApplicationFormDto } from './dto/job-application-form.dto';
-import { v2 as cloudinary } from 'cloudinary';
-
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dthjjextv',
-  api_key: process.env.CLOUDINARY_API_KEY || '324877819889514',
-  api_secret:
-    process.env.CLOUDINARY_API_SECRET || 'mIreBfcSUgismhOBAFQvkbhXlz4'
-});
 
 @Controller('Application')
 export class ApplicationController {
-  constructor(private readonly applicationService: ApplicationService) {}
+  constructor(
+    private readonly applicationService: ApplicationService,
+    private readonly storageService: StorageService
+  ) { }
 
   @Post('apply')
   @UseInterceptors(FileInterceptor('resume'))
@@ -35,33 +31,24 @@ export class ApplicationController {
       throw new BadRequestException('Resume file is required.');
     }
 
-    const uploadResult = await new Promise<{
-      secure_url: string;
-    }>((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        {
-          resource_type: 'raw',
-          folder: 'MCP_HRMS'
-        },
-        (error, result) => {
-          if (error || !result) {
-            return reject(
-              new BadRequestException(
-                `Cloudinary upload error: ${error?.message ?? 'unknown error'}`
-              )
-            );
-          }
-          resolve({ secure_url: result.secure_url });
-        }
+    // Upload to Google Cloud Storage
+    let resumeUrl: string;
+    try {
+      resumeUrl = await this.storageService.uploadFile(
+        file.buffer,
+        file.originalname
       );
-      stream.end(file.buffer);
-    });
+    } catch (error) {
+      throw new BadRequestException(
+        `Failed to upload resume: ${error instanceof Error ? error.message : 'unknown error'}`
+      );
+    }
 
     const application: Partial<JobApplication> = {
       name: form.name,
       email: form.email,
       position: form.position,
-      resumeUrl: uploadResult.secure_url,
+      resumeUrl: resumeUrl,
       appliedOn: new Date(),
       jobPostingId: form.jobPostingId
     };

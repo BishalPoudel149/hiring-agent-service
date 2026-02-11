@@ -1,4 +1,5 @@
 import { IsEmail, IsInt, IsNotEmpty, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class JobApplicationFormDto {
   @IsString()
@@ -13,6 +14,7 @@ export class JobApplicationFormDto {
   @IsNotEmpty()
   position!: string;
 
+  @Type(() => Number)
   @IsInt()
   @IsNotEmpty()
   jobPostingId!: number;
