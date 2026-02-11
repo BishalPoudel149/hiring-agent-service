@@ -77,3 +77,7 @@ npm run start
 - **Resume Parsing**: Extract insights from PDF resumes.
 - **Email Notifications**: Automated email responses using SMTP.
 - **MCP Integration**: Model Context Protocol tools for AI interactions.
+
+## 📚 API Documentation
+Once the application is running, you can access the Swagger API documentation at:
+[http://localhost:3000/api/docs](http://localhost:3000/api/docs)
