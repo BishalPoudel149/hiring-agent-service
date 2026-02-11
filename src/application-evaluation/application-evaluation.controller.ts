@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseIntPipe,
   Post
 } from '@nestjs/common';
 import { IsBoolean, IsInt, IsNumber, IsOptional, IsString } from 'class-validator';
@@ -63,11 +64,31 @@ export class ApplicationEvaluationController {
     return this.evaluationService.getAllEvaluations();
   }
 
+  @Get('applicant/:applicantId/score')
+  async getFinalScore(@Param('applicantId', ParseIntPipe) applicantId: number) {
+    const score = await this.evaluationService.getFinalScoreByApplicantId(applicantId);
+    
+    if (score === null) {
+      throw new BadRequestException('Evaluation not found for this applicant');
+    }
+    
+    return { 
+      jobApplicationId: applicantId,
+      finalAverageScore: score 
+    };
+  }
+
   @Get(':applicantId')
   getByApplicantId(@Param('applicantId') applicantId: string) {
     return this.evaluationService.getEvaluationByApplicantId(
       Number(applicantId)
     );
+  }
+
+  @Post('mail/:applicantId/send-email')
+  async sendEvaluationEmail(@Param('applicantId', ParseIntPipe) applicantId: number) {
+    const sent = await this.evaluationService.sendEvaluationEmail(applicantId);
+    return { success: sent };
   }
 }
 
