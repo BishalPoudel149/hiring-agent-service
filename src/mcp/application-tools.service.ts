@@ -69,5 +69,11 @@ export class ApplicationToolsService {
   getAllApplications(): Promise<JobApplication[]> {
     return this.applicationService.getAllApplications();
   }
+
+  async getFullApplicationDetails(
+    applicationId: number
+  ): Promise<JobApplication | null> {
+    return await this.applicationService.getApplicationById(applicationId);
+  }
 }
 
