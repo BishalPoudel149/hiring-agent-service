@@ -214,6 +214,122 @@ export class McpToolRegistryService {
             }
         });
 
+        // Evaluation Result Email Tool
+        this.registerTool({
+            name: 'send_evaluation_result_email',
+            description: 'Send evaluation result email (success or failure) to candidate based on their final average score. Automatically fetches candidate details from application. If score >= threshold, send success email with meeting URL. Otherwise, send rejection email. The agent should generate a personalized, professional email body.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    jobApplicationId: {
+                        type: 'number',
+                        description: 'The job application ID (will automatically fetch candidate name, email, and job title from this)'
+                    },
+                    finalAverageScore: {
+                        type: 'number',
+                        description: 'The final average score from evaluation (0-100)'
+                    },
+                    emailSubject: {
+                        type: 'string',
+                        description: 'Email subject line (agent should generate appropriate subject based on success/failure)'
+                    },
+                    emailBody: {
+                        type: 'string',
+                        description: 'Email body content (agent should generate personalized, professional email body. For success emails, the meeting URL will be automatically appended)'
+                    },
+                    meetingUrlBase: {
+                        type: 'string',
+                        description: 'Base URL for meeting links (optional, will use env var MEETING_URL_BASE if not provided)'
+                    },
+                    thresholdScore: {
+                        type: 'number',
+                        description: 'Threshold score for passing (optional, will use env var EVALUATION_THRESHOLD_SCORE if not provided, default: 70)'
+                    },
+                    isSuccess: {
+                        type: 'boolean',
+                        description: 'Explicitly specify if this is a success email (adds meeting link) or rejection email (no link). If provided, overrides threshold logic.'
+                    }
+                },
+                required: [
+                    'jobApplicationId',
+                    'finalAverageScore',
+                    'emailSubject',
+                    'emailBody'
+                ]
+            },
+            handler: async (args) => {
+                // Fetch application details to get candidate info
+                const application = await this.applicationTools.getApplicationDetails(args.jobApplicationId);
+                if (!application) {
+                    throw new Error(`Application with ID ${args.jobApplicationId} not found`);
+                }
+
+                // Get full application to access name, email, and position
+                const fullApplication = await this.applicationTools.getFullApplicationDetails(args.jobApplicationId);
+                if (!fullApplication) {
+                    throw new Error(`Could not fetch full application details for ID ${args.jobApplicationId}`);
+                }
+
+                const candidateName = fullApplication.name;
+                const candidateEmail = fullApplication.email;
+                const jobTitle = fullApplication.position;
+
+                const threshold = args.thresholdScore || parseFloat(process.env.EVALUATION_THRESHOLD_SCORE || '70');
+                const meetingUrlBase = args.meetingUrlBase || process.env.MEETING_URL_BASE || 'https://onboardly.com/interview/';
+
+                // Prioritize explicit isSuccess flag, otherwise use threshold
+                const isSuccess = args.isSuccess !== undefined
+                    ? args.isSuccess
+                    : args.finalAverageScore >= threshold;
+
+                // Generate meeting URL for success cases
+                const meetingUrl = isSuccess
+                    ? `${meetingUrlBase}${args.jobApplicationId}`
+                    : null;
+
+                // If agent included meeting URL in body, use it; otherwise append it for success emails
+                let finalBody = args.emailBody;
+                if (isSuccess && meetingUrl && !finalBody.includes(meetingUrl)) {
+                    finalBody += `\n\nMeeting Link: ${meetingUrl}`;
+                }
+
+                console.log(`[MCP Email Tool] Sending evaluation result email:`, {
+                    candidateEmail,
+                    candidateName,
+                    jobTitle,
+                    score: args.finalAverageScore,
+                    threshold,
+                    isSuccess,
+                    isSuccessOverridden: args.isSuccess !== undefined,
+                    subject: args.emailSubject,
+                    bodyLength: finalBody.length
+                });
+
+                const result = await this.emailUtil.sendEmailByAddress(
+                    candidateEmail,
+                    args.emailSubject,
+                    finalBody
+                );
+
+                if (!result) {
+                    console.error(`[MCP Email Tool] Failed to send email to ${candidateEmail}`);
+                }
+
+                return {
+                    success: result,
+                    emailSent: result,
+                    isSuccessEmail: isSuccess,
+                    score: args.finalAverageScore,
+                    threshold: threshold,
+                    candidateName: candidateName,
+                    candidateEmail: candidateEmail,
+                    jobTitle: jobTitle,
+                    meetingUrl: meetingUrl || null,
+                    error: result ? null : 'Email sending failed. Check server logs for details.'
+                };
+            }
+        });
+
         console.log(`[MCP] Registered ${this.tools.size} tools`);
     }
 
